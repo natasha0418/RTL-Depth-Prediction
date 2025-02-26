@@ -35,21 +35,19 @@ def extract_io_nodes(json_file, dot_file):
     G = nx.drawing.nx_agraph.read_dot(dot_file)
     module = next(iter(yosys_data["modules"].values()))
     ports = module["ports"]
-
-    dot_to_logical = {}  # Mapping DOT nodes (n5, n6, n7) to logical names (a, b, y)
-    io_nodes = {"inputs": set(), "outputs": set()}  # To store inputs/outputs separately
+    
+    io_nodes = {"inputs": set(), "outputs": set()} 
 
     for node, data in G.nodes(data=True):
         if "label" in data:
             label = data["label"].strip('"')
             if label in ports:
-                dot_to_logical[node] = label
                 if ports[label]["direction"] == "input":
                     io_nodes["inputs"].add(node)
                 elif ports[label]["direction"] == "output":
                     io_nodes["outputs"].add(node)
 
-    return dot_to_logical, io_nodes, G
+    return io_nodes, G
 
 
 def extract_gates(G):
@@ -65,7 +63,7 @@ def extract_gates(G):
     gates = {}
 
     for node in G.nodes():
-        if node.startswith("c"):  # Gate nodes typically start with 'c'
+        if node.startswith("c"): 
             label = G.nodes[node].get("label", "")
             gate_name, gate_index = extract_gate_info(label)
             if gate_name:
@@ -99,10 +97,10 @@ def assign_features(G, io_nodes, gates):
         elif node in io_nodes["outputs"]:
             df.at[node, "is_output"] = 1
 
-        if node.startswith("c"):  # It's a gate node
+        if node.startswith("c"): 
             print(G.nodes[node]["label"])
             gate_type, gate_index = extract_gate_info(G.nodes[node]["label"])
-            df.at[node, gate_type] = 1  # Mark the correct gate type
+            df.at[node, gate_type] = 1
 
     node_mapping = {node: i for i, node in enumerate(G.nodes())}
 
@@ -112,7 +110,7 @@ def assign_features(G, io_nodes, gates):
     return x, node_mapping, edge_index, df
 
 
-def process_graph(json_file, dot_file):
+def extract_graph_features(json_file, dot_file):
     """
     Full pipeline: Extracts nodes, gates, and assigns features for GNN processing.
 
@@ -126,7 +124,7 @@ def process_graph(json_file, dot_file):
         torch.Tensor: Edge index tensor.
         pd.DataFrame: DataFrame of features.
     """
-    dot_to_logical, io_nodes, G = extract_io_nodes(json_file, dot_file)
+    io_nodes, G = extract_io_nodes(json_file, dot_file)
     gates = extract_gates(G)
     x, node_mapping, edge_index, df = assign_features(G, io_nodes, gates)
 

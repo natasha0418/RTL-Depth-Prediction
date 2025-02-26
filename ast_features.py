@@ -90,7 +90,7 @@ def extract_signals(ast, analyzer, features):
     return features
 
 
-def extract_features(rtl_file, topmodule=None):
+def extract_ast_features(rtl_file, topmodule=None):
     ast, analyzer = load_analyzer(rtl_file, topmodule)
 
     features = {}
@@ -100,7 +100,6 @@ def extract_features(rtl_file, topmodule=None):
     operators = extract_operators(ast)
     features.update(operators)
 
-    # Combined operator count
     features["total_operators"] = sum(operators.values())
     features["paren_count"] = count_nodes(ast, "Paren")
     features["conditional_count"] = count_nodes(ast, "Cond")
@@ -114,7 +113,7 @@ def calculate_fanin_depth(signal_name, binddict, ast, visited=None, depth=0):
     if visited is None:
         visited = set()
 
-    if signal_name in visited:  # Prevent infinite loops
+    if signal_name in visited:
         return depth
 
     visited.add(signal_name)
@@ -133,10 +132,10 @@ def find_fanin_signals(signal_name, binddict, ast):
     fanin_signals = set()
 
     for node in ast.children():
-        if isinstance(node, pyverilog.vparser.ast.NonblockingSubstitution):  # Check signal assignments
+        if isinstance(node, pyverilog.vparser.ast.NonblockingSubstitution):  
             if node.left.var == signal_name:
-                fanin_signals.update(get_identifiers(node.right))  # Extract input signals
-        fanin_signals.update(find_fanin_signals(signal_name, binddict, node))  # Recursive check
+                fanin_signals.update(get_identifiers(node.right)) 
+        fanin_signals.update(find_fanin_signals(signal_name, binddict, node)) 
 
     return fanin_signals
 
@@ -194,7 +193,7 @@ def count_nodes(ast, node_type):
     for node in ast.children():
         if node.__class__.__name__ == node_type:
             count += 1
-        count += count_nodes(node, node_type)  # Recursive traversal
+        count += count_nodes(node, node_type) 
     return count
 
 
