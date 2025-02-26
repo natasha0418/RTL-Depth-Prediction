@@ -1,0 +1,12 @@
+Jinja2
+json5
+networkx
+numpy
+pandas
+ply
+pyparsing
+pyverilog
+requests
+torch
+torch-geometric
+tqdm
