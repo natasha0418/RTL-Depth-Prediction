@@ -1,9 +1,11 @@
 Jinja2
 json5
 networkx
+matplotlib
 numpy
 pandas
 ply
+pygraphviz
 pyparsing
 pyverilog
 requests
