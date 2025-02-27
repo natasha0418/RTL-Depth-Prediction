@@ -1,3 +1,4 @@
+#automates Yosys-based processing of Verilog files into different formats (ilang, dot, png, json) and loads Yosys-generated JSON files.
 import json
 import subprocess
 from typing import Literal
