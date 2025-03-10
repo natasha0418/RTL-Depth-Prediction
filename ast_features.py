@@ -5,6 +5,8 @@ from pyverilog.dataflow.dataflow_analyzer import VerilogDataflowAnalyzer
 from pyverilog.vparser.ast import *
 from pyverilog.vparser.parser import parse
 
+#this maps verilog operators to human readable names
+#will be used lator to count the occurences of each operator in the AST
 OPERATOR_MAP = {
     # Arithmetic Operators
     Plus: "add",
@@ -36,7 +38,7 @@ OPERATOR_MAP = {
     # Ternary (Conditional) Operator
     Cond: "conditional",
 }
-
+# Setting up logging to display status and debugging messages
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -59,10 +61,12 @@ def detect_topmodule(ast, topmodule=None):
 
 def load_analyzer(rtl_file, topmodule=None):
     """Load a VerilogDataflowAnalyzer object from an RTL file"""
+    #converts verilog file into AST
     ast, _ = parse([rtl_file])
     topmodule = detect_topmodule(ast, topmodule)
 
     analyzer = VerilogDataflowAnalyzer(rtl_file, topmodule)
+    #construncts dataflow info, mapping signals to their defining expressions
     analyzer.generate()
 
     return ast, analyzer
