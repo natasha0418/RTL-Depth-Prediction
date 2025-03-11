@@ -10,6 +10,7 @@ from utils import generate_file
 
 
 def extract_gate_info(label):
+    #uses regex pattern to match
     pattern = r"\$(\d+)\s*(?:\\n|\n)\s*\$(\w+)"
     match = re.search(pattern, label)
     if match:
