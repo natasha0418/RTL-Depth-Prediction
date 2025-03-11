@@ -4,6 +4,9 @@ import re
 import networkx as nx
 import pandas as pd
 import torch
+from torch_geometric.data import Data
+
+from utils import generate_file
 
 
 def extract_gate_info(label):
@@ -35,8 +38,8 @@ def extract_io_nodes(json_file, dot_file):
     G = nx.drawing.nx_agraph.read_dot(dot_file)
     module = next(iter(yosys_data["modules"].values()))
     ports = module["ports"]
-    
-    io_nodes = {"inputs": set(), "outputs": set()} 
+
+    io_nodes = {"inputs": set(), "outputs": set()}
 
     for node, data in G.nodes(data=True):
         if "label" in data:
@@ -63,7 +66,7 @@ def extract_gates(G):
     gates = {}
 
     for node in G.nodes():
-        if node.startswith("c"): 
+        if node.startswith("c"):
             label = G.nodes[node].get("label", "")
             gate_name, gate_index = extract_gate_info(label)
             if gate_name:
@@ -97,7 +100,7 @@ def assign_features(G, io_nodes, gates):
         elif node in io_nodes["outputs"]:
             df.at[node, "is_output"] = 1
 
-        if node.startswith("c"): 
+        if node.startswith("c"):
             print(G.nodes[node]["label"])
             gate_type, gate_index = extract_gate_info(G.nodes[node]["label"])
             df.at[node, gate_type] = 1
@@ -110,7 +113,56 @@ def assign_features(G, io_nodes, gates):
     return x, node_mapping, edge_index, df
 
 
-def extract_graph_features(json_file, dot_file):
+def get_circuit_graph(file):
+    # file = generate_file(file, 'json')
+    file = file.replace(".v", ".json")
+    if not file:
+        return None
+    with open(file, "r") as f:
+        yosys_data = json.load(f)
+
+    G = nx.DiGraph()
+
+    wire_nodes = set()
+
+    for module_name, module in yosys_data["modules"].items():
+        for cell_name, cell in module["cells"].items():
+            gate_type = cell["type"]  # Gate type (AND, OR, etc.)
+
+            inputs = []
+            output = None
+
+            for port, connections in cell["connections"].items():
+                if "Y" in port:  # Output of the gate
+                    output = connections[0]
+                    wire_nodes.add(output)
+                else:  # Inputs to the gate
+                    inputs.extend(connections)
+                    wire_nodes.update(connections)
+
+            if output:
+                for inp in inputs:
+                    G.add_edge(inp, output, gate=gate_type)
+
+    node_mapping = {node: i for i, node in enumerate(G.nodes())}
+
+    edge_index = torch.tensor([[node_mapping[src], node_mapping[dst]] for src, dst in G.edges()]).t().contiguous()
+
+    gate_types = {gate: i for i, gate in enumerate(set(nx.get_edge_attributes(G, "gate").values()))}
+    edge_attr = torch.zeros(len(G.edges()), len(gate_types))
+
+    for i, (src, dst, data) in enumerate(G.edges(data=True)):
+        gate_type = data["gate"]
+        edge_attr[i, gate_types[gate_type]] = 1  # One-hot encode the gate type
+
+    x = torch.eye(len(G.nodes()))
+
+    pyg_graph = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+
+    return pyg_graph
+
+
+def extract_graph_features(file):
     """
     Full pipeline: Extracts nodes, gates, and assigns features for GNN processing.
 
@@ -124,6 +176,10 @@ def extract_graph_features(json_file, dot_file):
         torch.Tensor: Edge index tensor.
         pd.DataFrame: DataFrame of features.
     """
+    json_file = generate_file(file, "json")
+    dot_file = generate_file(file, "dot")
+    if not json_file or not dot_file:
+        return None, None, None, None
     io_nodes, G = extract_io_nodes(json_file, dot_file)
     gates = extract_gates(G)
     x, node_mapping, edge_index, df = assign_features(G, io_nodes, gates)

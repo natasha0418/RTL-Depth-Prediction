@@ -1,0 +1,21 @@
+Benchmark,Inputs,Outputs,LUT-6 count,Levels,Category,Filepath
+Adder,256,129,254,51,arithmetic,benchmarks/arithmetic/adder.v
+Barrel shifter,135,128,512,4,arithmetic,benchmarks/arithmetic/bar.v
+Divisor,128,128,9311,867,arithmetic,benchmarks/arithmetic/div.v
+Hypotenuse,256,128,44635,4194,arithmetic,benchmarks/arithmetic/hyp.v
+Log2,32,32,8008,77,arithmetic,benchmarks/arithmetic/log2.v
+Max,512,130,842,56,arithmetic,benchmarks/arithmetic/max.v
+Multiplier,128,128,5913,53,arithmetic,benchmarks/arithmetic/multiplier.v
+Sine,24,25,1458,42,arithmetic,benchmarks/arithmetic/sin.v
+Square-root,128,64,5720,1033,arithmetic,benchmarks/arithmetic/sqrt.v
+Square,64,128,3985,50,arithmetic,benchmarks/arithmetic/square.v
+Round-robin arbiter,256,129,2722,18,random_control,benchmarks/random_control/arbiter.v
+Alu control unit,7,26,29,2,random_control,benchmarks/random_control/ctrl.v
+Coding-cavlc,10,11,122,4,random_control,benchmarks/random_control/cavlc.v
+Decoder,8,256,287,2,random_control,benchmarks/random_control/dec.v
+i2c controller,147,142,365,4,random_control,benchmarks/random_control/i2c.v
+int to float converter,11,7,49,3,random_control,benchmarks/random_control/int2float.v
+Memory controller,1204,1231,12096,25,random_control,benchmarks/random_control/mem_ctrl.v
+Priority encoder,128,8,210,31,random_control,benchmarks/random_control/priority.v
+Lookahead XY router,60,30,89,7,random_control,benchmarks/random_control/router.v
+Voter,1001,1,2691,16,random_control,benchmarks/random_control/voter.v

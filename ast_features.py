@@ -1,9 +1,10 @@
 import logging
 
-import pyverilog
 from pyverilog.dataflow.dataflow_analyzer import VerilogDataflowAnalyzer
 from pyverilog.vparser.ast import *
 from pyverilog.vparser.parser import parse
+
+from ast_signal_features import extract_signals
 
 OPERATOR_MAP = {
     # Arithmetic Operators
@@ -68,28 +69,6 @@ def load_analyzer(rtl_file, topmodule=None):
     return ast, analyzer
 
 
-def extract_signals(ast, analyzer, features):
-    """Extract features for all signals in the RTL design, counting signal types and extracting AST features."""
-
-    signal_features = {}
-
-    signal_names, signals = analyzer.getSignals().keys(), analyzer.getSignals().values()
-
-    for signal in signals:
-        signal_name = signal[0].name  # Name of the signal
-        signal_class_name = signal[0].__class__.__name__  # Signal class name (e.g., Input, Output, etc.)
-        features[signal_class_name] = features.get(signal_class_name, 0) + 1
-
-        signal_features[signal_name] = {
-            "fanin_depth": calculate_fanin_depth(signal, analyzer.binddict, ast),
-            "module_nesting": get_module_nesting(signal, ast),
-            "signal_width": get_signal_width(signal, ast),
-        }
-
-    features["signals"] = signal_features
-    return features
-
-
 def extract_ast_features(rtl_file, topmodule=None):
     ast, analyzer = load_analyzer(rtl_file, topmodule)
 
@@ -108,101 +87,21 @@ def extract_ast_features(rtl_file, topmodule=None):
     return features
 
 
-def calculate_fanin_depth(signal_name, binddict, ast, visited=None, depth=0):
-    """Calculates the recursive fanin depth of a signal"""
-    if visited is None:
-        visited = set()
-
-    if signal_name in visited:
-        return depth
-
-    visited.add(signal_name)
-
-    max_depth = depth
-    fanin_signals = find_fanin_signals(signal_name, binddict, ast)
-
-    for fanin in fanin_signals:
-        max_depth = max(max_depth, calculate_fanin_depth(fanin, binddict, ast, visited, depth + 1))
-
-    return max_depth
-
-
-def find_fanin_signals(signal_name, binddict, ast):
-    """Finds all fanin signals for a given signal using AST"""
-    fanin_signals = set()
-
-    for node in ast.children():
-        if isinstance(node, pyverilog.vparser.ast.NonblockingSubstitution):  
-            if node.left.var == signal_name:
-                fanin_signals.update(get_identifiers(node.right)) 
-        fanin_signals.update(find_fanin_signals(signal_name, binddict, node)) 
-
-    return fanin_signals
-
-
-def get_identifiers(node):
-    """Extracts all signal identifiers from an expression node"""
-    if isinstance(node, pyverilog.vparser.ast.Identifier):
-        return {node.name}
-    identifiers = set()
-    for child in node.children():
-        identifiers.update(get_identifiers(child))
-    return identifiers
-
-
-def get_module_nesting(signal_name, ast):
-    """Determines the module nesting level of a signal"""
-
-    def find_module_depth(node, depth=1):
-        if isinstance(node, pyverilog.vparser.ast.ModuleDef):
-            return depth
-        for child in node.children():
-            module_depth = find_module_depth(child, depth + 1)
-            if module_depth:
-                return module_depth
-        return None
-
-    for module in ast.children():
-        if isinstance(module, pyverilog.vparser.ast.ModuleDef):
-            for decl in module.children():
-                if isinstance(decl, pyverilog.vparser.ast.Decl):
-                    for var in decl.children():
-                        if hasattr(var, "name") and var.name == signal_name:
-                            return find_module_depth(module)
-
-    return 1  # Default nesting level if signal is not deeply nested
-
-
-def get_signal_width(signal_name, ast):
-    """Extracts the bit width of a signal using AST"""
-    for module in ast.children():
-        if isinstance(module, pyverilog.vparser.ast.ModuleDef):
-            for decl in module.children():
-                if isinstance(decl, pyverilog.vparser.ast.Decl):
-                    for var in decl.children():
-                        if hasattr(var, "name") and var.name == signal_name:
-                            if hasattr(var, "width") and var.width is not None:
-                                msb, lsb = var.width.msb.value, var.width.lsb.value
-                                return abs(int(msb) - int(lsb)) + 1  # Compute signal width
-    return 1  # Default width (single bit) if not explicitly defined
-
-
 def count_nodes(ast, node_type):
     """Counts occurrences of a given node type in the AST"""
     count = 0
     for node in ast.children():
         if node.__class__.__name__ == node_type:
             count += 1
-        count += count_nodes(node, node_type) 
+        count += count_nodes(node, node_type)
     return count
 
 
 def estimate_statement_depth(ast, depth=0):
     """Estimates the depth of statements in the AST"""
-    max_depth = depth
-    for node in ast.children():
-        max_depth = max(max_depth, estimate_statement_depth(node, depth + 1))
-    return max_depth
+    if not hasattr(ast, "children") or not ast.children():
+        return depth
+    return max(estimate_statement_depth(child, depth + 1) for child in ast.children())
 
 
 def extract_operators(node, operators=None):
@@ -210,10 +109,11 @@ def extract_operators(node, operators=None):
     if operators is None:
         operators = {op: 0 for op in OPERATOR_MAP.values()}
 
-    if type(node) in OPERATOR_MAP:
+    if isinstance(node, tuple(OPERATOR_MAP.keys())):
         operators[OPERATOR_MAP[type(node)]] += 1
 
-    for child in node.children():
-        extract_operators(child, operators)
+    if hasattr(node, "children"):
+        for child in node.children():
+            extract_operators(child, operators)
 
     return operators

@@ -1,24 +1,29 @@
-from ast_features import extract_ast_features
-from graph_features import extract_graph_features
-from utils import generate_file
+import pickle
 
-from model import train_graph_nn, train_random_forest
-file = 'sample_data/file.v'
+import torch
+from torch_geometric.data import DataLoader, Dataset
 
-json_file = "my_circuit.json"
-dot_file = "my_circuit.dot"
+from dataset import GraphDataset, create_ast_dataset, create_graph_dataset
+from model import GCN, train_graph_nn, train_random_forest
 
-generate_file(file, 'dot', dot_file)
-generate_file(file, 'json', json_file)
+create_ast_dataset()
+create_graph_dataset()
 
-# The code for the ML training assumes that labels are provided (combinational depth)
-# but for now they are not present.
-# While creating the dataset, the combinational depth has to be calculated and provided.
+with open("ast_features.pkl", "rb") as f:
+    df = pickle.load(f, encoding="utf-8")
 
-features1, node_mapping, edge_index, df = extract_graph_features(json_file, dot_file)
-train_graph_nn(features1, edge_index, df)
+X = df.drop(columns=["filepath", "label"])
+y = df["label"]
 
-features2 = extract_ast_features(file)
-train_random_forest(features2)
+rf = train_random_forest(X, y)
+
+graph_dataset = GraphDataset()
+
+train_dataset, test_dataset = torch.utils.data.random_split(graph_dataset, [int(0.8 * len(graph_dataset)), len(graph_dataset) - int(0.8 * len(graph_dataset))])
+
+train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
+
+train_graph_nn(train_loader, test_loader, graph_dataset)
 
 # we also have to add an inverse weighting mechanism here to combine the outputs of both models for optimal performance.

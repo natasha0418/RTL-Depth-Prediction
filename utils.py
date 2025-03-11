@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from typing import Literal
 
@@ -6,8 +7,10 @@ from typing import Literal
 def generate_file(
     verilog_file,
     output_file_type: Literal["ilang", "dot", "png", "json"],
-    prefix="my_circuit",
 ):
+    dir_name = os.path.dirname(verilog_file)
+    prefix = os.path.join(dir_name, os.path.splitext(os.path.basename(verilog_file))[0])
+
     try:
         if output_file_type == "ilang":
             subprocess.run(f'yosys -p "read_verilog {verilog_file}; proc; opt; write_ilang {prefix}.il"', shell=True, check=True, text=True)
@@ -21,8 +24,12 @@ def generate_file(
         if output_file_type == "json":
             subprocess.run(f'yosys -p "read_verilog {verilog_file}; synth; write_json {prefix}.json;"', shell=True, check=True, text=True)
 
+        return f"{prefix}.{output_file_type}"
+
     except subprocess.CalledProcessError as e:
         print("[Error] Yosys failed:", e)
+
+    return None
 
 
 def load_yosys_json(json_file):
